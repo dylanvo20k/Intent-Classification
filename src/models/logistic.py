@@ -1,0 +1,3 @@
+"""
+Logistic model implementation
+"""

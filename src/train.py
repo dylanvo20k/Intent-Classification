@@ -1,0 +1,3 @@
+"""
+Trains all models 
+"""
