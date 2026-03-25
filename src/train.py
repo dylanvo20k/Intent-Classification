@@ -6,11 +6,12 @@ import os
 import pickle
 import numpy as np
 from preprocess import get_tfidf_data
-from models import logistic, naive_bayes, random_forest, ffn
+from datasets import load_dataset
+from models import logistic, naive_bayes, random_forest, ffn, distilbert
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 RESULTS_DIR = os.path.join(ROOT, "eval", "results")
-
+LOCALE = "en-US"
 
 def save(obj, path):
     with open(path, "wb") as f:
@@ -24,9 +25,19 @@ def main():
     print("Loading and preprocessing data")
     X_train, X_val, X_test, y_train, y_val, y_test, vectorizer, le = get_tfidf_data()
 
+    # raw utterances for DistilBERT
+    dataset = load_dataset("AmazonScience/massive", LOCALE)
+    train_utts = dataset["train"]["utt"]
+    val_utts   = dataset["validation"]["utt"]
+    test_utts  = dataset["test"]["utt"]
+
     # save label encoder for evaluate.py
     save(le, os.path.join(RESULTS_DIR, "label_encoder.pkl"))
     save(y_test, os.path.join(RESULTS_DIR, "y_test.pkl"))
+    save(test_utts, os.path.join(RESULTS_DIR, "test_utts.pkl")) 
+    save(train_utts, os.path.join(RESULTS_DIR, "train_utts.pkl")) 
+    save(val_utts, os.path.join(RESULTS_DIR, "val_utts.pkl")) 
+
 
     # Logistic Regression
     print("\nTraining Logistic Regression")
@@ -51,6 +62,14 @@ def main():
     ffn_model = ffn.train(X_train, y_train, X_val, y_val)
     ffn_preds = ffn.predict(ffn_model, X_test)
     save(ffn_preds, os.path.join(RESULTS_DIR, "preds_ffn.pkl"))
+
+    # DistilBERT
+    print("\nTraining DistilBERT")
+    db_model, db_tokenizer = distilbert.train(train_utts, y_train, val_utts, y_val)
+    db_preds = distilbert.predict(db_model, db_tokenizer, test_utts)
+    save(db_preds, os.path.join(RESULTS_DIR, "preds_distilbert.pkl"))
+    save(db_tokenizer, os.path.join(RESULTS_DIR, "distilbert_tokenizer.pkl"))
+
 
     print("\nAll models trained. Predictions saved to eval/results/")
 

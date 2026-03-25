@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
 from preprocess import get_tfidf_data
-from models import logistic, naive_bayes, random_forest, ffn
+from models import logistic, naive_bayes, random_forest, ffn, distilbert
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 RESULTS_DIR = os.path.join(ROOT, "eval", "results")
 FIGURES_DIR = os.path.join(ROOT, "eval", "figures")
-MODELS = ["Logistic Regression", "Naive Bayes", "Random Forest", "FFN"]
+MODELS = ["Logistic Regression", "Naive Bayes", "Random Forest", "FFN", "DistilBERT"]
 
 
 def load(path):
@@ -51,7 +51,7 @@ def plot_confusion_matrix(y_test, preds, label_names, model_name):
 
 
 def plot_accuracy_comparison(accuracies):
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(12, 5))
     bars = plt.bar(MODELS, accuracies, color="steelblue", edgecolor="black")
     for bar, acc in zip(bars, accuracies):
         plt.text(bar.get_x() + bar.get_width() / 2,
@@ -66,7 +66,7 @@ def plot_accuracy_comparison(accuracies):
 
 
 def plot_f1_comparison(f1_scores):
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(12, 5))
     bars = plt.bar(MODELS, f1_scores, color="steelblue", edgecolor="black")
     for bar, f1 in zip(bars, f1_scores):
         plt.text(bar.get_x() + bar.get_width() / 2,
@@ -81,7 +81,7 @@ def plot_f1_comparison(f1_scores):
 
 
 def plot_inference_time(times):
-    plt.figure(figsize=(10, 5))
+    plt.figure(figsize=(12, 5))
     bars = plt.bar(MODELS, times, color="steelblue", edgecolor="black")
     for bar, t in zip(bars, times):
         plt.text(bar.get_x() + bar.get_width() / 2,
@@ -102,11 +102,19 @@ def main():
     X_train, X_val, X_test, y_train, y_val, y_test, vectorizer, le = get_tfidf_data()
     label_names = le.classes_
 
+    # raw utterances for DistilBERT
+    test_utts    = load(os.path.join(RESULTS_DIR, "test_utts.pkl"))
+    db_tokenizer = load(os.path.join(RESULTS_DIR, "distilbert_tokenizer.pkl"))
+    train_utts   = load(os.path.join(RESULTS_DIR, "train_utts.pkl"))  
+    val_utts     = load(os.path.join(RESULTS_DIR, "val_utts.pkl"))    
+
+
     preds = {
         "Logistic Regression": load(os.path.join(RESULTS_DIR, "preds_logistic.pkl")),
         "Naive Bayes":         load(os.path.join(RESULTS_DIR, "preds_naive_bayes.pkl")),
         "Random Forest":       load(os.path.join(RESULTS_DIR, "preds_random_forest.pkl")),
         "FFN":                 load(os.path.join(RESULTS_DIR, "preds_ffn.pkl")),
+        "DistilBERT":          load(os.path.join(RESULTS_DIR, "preds_distilbert.pkl")),
     }
 
     # retrain lightweight models for inference timing
@@ -115,6 +123,7 @@ def main():
     nb_model = naive_bayes.train(X_train, y_train)
     rf_model = random_forest.train(X_train, y_train)
     ffn_model = ffn.train(X_train, y_train, X_val, y_val)
+    db_model, _ = distilbert.train(train_utts, y_train, val_utts, y_val)
 
     print("\nMetrics ")
     accuracies, f1_scores, inf_times = [], [], []
@@ -124,6 +133,7 @@ def main():
         "Naive Bayes":         lambda X: naive_bayes.predict(nb_model, X),
         "Random Forest":       lambda X: random_forest.predict(rf_model, X),
         "FFN":                 lambda X: ffn.predict(ffn_model, X),
+        "DistilBERT":          lambda X: distilbert.predict(db_model, db_tokenizer, test_utts), 
     }
 
     for name in MODELS:
