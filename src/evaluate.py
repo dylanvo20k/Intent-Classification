@@ -15,6 +15,7 @@ from models import logistic, naive_bayes, random_forest, ffn, distilbert
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 RESULTS_DIR = os.path.join(ROOT, "eval", "results")
 FIGURES_DIR = os.path.join(ROOT, "eval", "figures")
+APPLE_SDK_INF_TIME_MS = 1434868.3
 MODELS = ["Logistic Regression", "Naive Bayes", "Random Forest", "FFN", "DistilBERT", "Apple SDK"]
 
 
@@ -81,14 +82,13 @@ def plot_f1_comparison(f1_scores):
 
 
 def plot_inference_time(times):
-    filtered_models = [m for m, t in zip(MODELS, times) if t is not None]
-    filtered_times = [t for t in times if t is not None]
     plt.figure(figsize=(12, 5))
-    bars = plt.bar(filtered_models, filtered_times, color="steelblue", edgecolor="black")
-    for bar, t in zip(bars, filtered_times):
+    bars = plt.bar(MODELS, times, color="steelblue", edgecolor="black")
+    for bar, t in zip(bars, times):
         plt.text(bar.get_x() + bar.get_width() / 2,
                  bar.get_height() + 0.5,
                  f"{t:.1f}ms", ha="center", fontsize=10)
+    plt.yscale("log")
     plt.ylabel("Avg Inference Time (ms)")
     plt.title("Inference Time by Model (CPU, full test set)")
     plt.tight_layout()
@@ -126,7 +126,7 @@ def main():
     nb_model = naive_bayes.train(X_train, y_train)
     rf_model = random_forest.train(X_train, y_train)
     ffn_model = ffn.train(X_train, y_train, X_val, y_val)
-    # db_model, _ = distilbert.train(train_utts, y_train, val_utts, y_val)
+    db_model, _ = distilbert.train(train_utts, y_train, val_utts, y_val)
 
     print("\nMetrics ")
     accuracies, f1_scores, inf_times = [], [], []
@@ -136,7 +136,7 @@ def main():
         "Naive Bayes":         lambda X: naive_bayes.predict(nb_model, X),
         "Random Forest":       lambda X: random_forest.predict(rf_model, X),
         "FFN":                 lambda X: ffn.predict(ffn_model, X),
-        #"DistilBERT":          lambda X: distilbert.predict(db_model, db_tokenizer, test_utts), 
+        "DistilBERT":          lambda X: distilbert.predict(db_model, db_tokenizer, test_utts), 
     }
 
     for name in MODELS:
@@ -144,11 +144,12 @@ def main():
         acc = accuracy_score(y_test, y_pred)
         f1 = f1_score(y_test, y_pred, average="macro", zero_division=0)
 
-        if name in ("Apple SDK", "DistilBERT"):
-            inf_time = None
+        if name == "Apple SDK":
+            inf_time = APPLE_SDK_INF_TIME_MS
+            print(f"  Apple SDK inference time: {inf_time:.1f} ms (hardcoded wall-clock)")
         else: 
             inf_time = measure_inference_time(name, model_fns[name], X_test)
-
+                                              
         accuracies.append(acc)
         f1_scores.append(f1)
         inf_times.append(inf_time)
@@ -168,4 +169,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main() 
