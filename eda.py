@@ -86,39 +86,23 @@ plt.tight_layout()
 plt.savefig("eval/figures/top_words.png", dpi=150)
 plt.close()
 
-from tabulate import tabulate
+# domain-intent distribution
+scenario_names = train_ds.features['scenario'].names
+train_df['scenario_name'] = train_df['scenario'].apply(lambda x: scenario_names[x])
 
-# total unique words across all utterances
-all_unique_words = set(
-    w for w in " ".join(train_df['utt'].tolist()).lower().split()
-    if w not in ENGLISH_STOP_WORDS
+domain_intent_counts = train_df.groupby(['scenario_name', 'intent']).size().reset_index(name='count')
+
+plt.figure(figsize=(16, 7))
+sns.boxplot(
+    data=domain_intent_counts,
+    x='scenario_name',
+    y='count',
+    color='steelblue'
 )
-
-# class balance ratio (max count / min count)
-intent_counts = train_df['intent'].value_counts()
-balance_ratio = intent_counts.max() / intent_counts.min()
-
-# average utterances per intent
-avg_per_intent = len(train_df) / 60
-
-# intents with fewer than 50 samples
-low_resource_intents = (intent_counts < 50).sum()
-
-summary = [
-    ["Total utterances (train)",        len(train_df)],
-    ["Total utterances (validation)",   len(val_df)],
-    ["Total utterances (test)",         len(test_df)],
-    ["Number of intent classes",        60],
-    ["Number of domains",               18],
-    ["Average utterance length (words)", f"{train_df['utt_length'].mean():.1f}"],
-    ["Shortest utterance (words)",      train_df['utt_length'].min()],
-    ["Longest utterance (words)",       train_df['utt_length'].max()],
-    ["Unique meaningful words (train)", len(all_unique_words)],
-    ["Avg utterances per intent",       f"{avg_per_intent:.0f}"],
-    ["Most frequent intent count",      intent_counts.max()],
-    ["Least frequent intent count",     intent_counts.min()],
-    ["Class imbalance ratio (max/min)", f"{balance_ratio:.1f}x"],
-    ["Intents with fewer than 50 samples", low_resource_intents],
-]
-
-print(tabulate(summary, headers=["Metric", "Value"], tablefmt="grid"))
+plt.xticks(rotation=45, ha='right', fontsize=9)
+plt.xlabel("Domain")
+plt.ylabel("Utterance Count per Intent")
+plt.title("Distribution of Intent Counts Within Each Domain")
+plt.tight_layout()
+plt.savefig("eval/figures/domain_intent_distribution.png", dpi=150)
+plt.close()
